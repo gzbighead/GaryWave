@@ -29,4 +29,4 @@ jobs:
       - name: 运行GWAVE扫描
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-        run: python report_gwave.py
+        run: python report_gwave_us.py
