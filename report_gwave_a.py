@@ -133,9 +133,9 @@ def send_email(html: str, resonance_count: int) -> bool:
 
 def main():
     scan_time_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-    logger.info(f"开始扫描，共 {len(WATCHLIST_US)} 只标的")
+    logger.info(f"开始扫描，共 {len(WATCHLIST_A)} 只标的")
 
-    results = scan_watchlist(WATCHLIST_US)
+    results = scan_watchlist(WATCHLIST_A)
     resonance_list = get_resonance_list(results)
     failed_list = get_failed_list(results)
 
