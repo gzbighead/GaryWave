@@ -79,7 +79,7 @@ def build_html(resonance_list, failed_list, total_count, scan_time_str) -> str:
     <body>
         <div class="container">
             <div class="header">
-                <h2>GWAVE 双周期共振扫描</h2>
+                <h2>A股 GWAVE 双周期共振扫描</h2>
                 <p>{scan_time_str}　|　共扫描 {total_count} 只标的，命中 {len(resonance_list)} 只</p>
             </div>
             <div class="body">
