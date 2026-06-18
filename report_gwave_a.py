@@ -141,7 +141,7 @@ def main():
 
     logger.info(f"扫描完成: 共振 {len(resonance_list)} 只，失败 {len(failed_list)} 只")
 
-    html = build_html(resonance_list, failed_list, len(WATCHLIST_US), scan_time_str)
+    html = build_html(resonance_list, failed_list, len(WATCHLIST_A), scan_time_str)
     ok = send_email(html, len(resonance_list))
 
     if not ok:
