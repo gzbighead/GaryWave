@@ -101,7 +101,7 @@ def send_email(html: str, resonance_count: int) -> bool:
         return False
 
     today_str = datetime.date.today().strftime("%Y-%m-%d")
-    subject = f"A股波动扫描 {today_str}　命中{resonance_count}只" if resonance_count > 0 \
+    subject = f"A股波动选股 {today_str}　命中{resonance_count}只" if resonance_count > 0 \
         else f"A股波动扫描 {today_str}　无信号"
 
     payload = {
