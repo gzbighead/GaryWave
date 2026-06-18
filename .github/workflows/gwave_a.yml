@@ -1,4 +1,4 @@
-name: GWAVE 双周期共振扫描
+name: A股 GWAVE 双周期共振扫描
 
 on:
   # 由 Cloudflare Worker 通过 GitHub API 触发 (repository_dispatch)
