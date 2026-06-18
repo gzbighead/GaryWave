@@ -62,12 +62,12 @@ def build_html(resonance_list, failed_list, total_count, scan_time_str) -> str:
             </tr>"""
         body_content = f"""
         <table>
-            <tr><th>代码</th><th>名称</th><th>最新价</th><th>共振状态</th></tr>
+            <tr><th>代码</th><th>名称</th><th>最新价</th><th>波动状态</th></tr>
             {rows}
         </table>
         """
     else:
-        body_content = '<div class="empty">本轮扫描无共振信号股票</div>'
+        body_content = '<div class="empty">本轮扫描无波动信号股票</div>'
 
     failed_note = ""
     if failed_list:
@@ -79,7 +79,7 @@ def build_html(resonance_list, failed_list, total_count, scan_time_str) -> str:
     <body>
         <div class="container">
             <div class="header">
-                <h2>美股波动共振选股</h2>
+                <h2>美股波动选股</h2>
                 <p>{scan_time_str}　|　共扫描 {total_count} 只标的，命中 {len(resonance_list)} 只</p>
             </div>
             <div class="body">
@@ -101,8 +101,8 @@ def send_email(html: str, resonance_count: int) -> bool:
         return False
 
     today_str = datetime.date.today().strftime("%Y-%m-%d")
-    subject = f"美股波动共振选股 {today_str}　命中{resonance_count}只" if resonance_count > 0 \
-        else f"美股波动共振选股 {today_str}　无符合条件个股"
+    subject = f"美股波动选股 {today_str}　命中{resonance_count}只" if resonance_count > 0 \
+        else f"美股波动选股 {today_str}　无符合条件个股"
 
     payload = {
         "from": EMAIL_FROM,
