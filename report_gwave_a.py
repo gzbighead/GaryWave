@@ -25,7 +25,7 @@ logger = logging.getLogger("gwave_report")
 RESEND_API_URL = "https://api.resend.com/emails"
 
 EMAIL_TO   = ["garyfocus@hotmail.com"]
-EMAIL_FROM = "A股共振选股 <messenger@ceic.ca>"
+EMAIL_FROM = "A股波动选股 <messenger@ceic.ca>"
 
 
 def build_html(resonance_list, failed_list, total_count, scan_time_str) -> str:
@@ -62,12 +62,12 @@ def build_html(resonance_list, failed_list, total_count, scan_time_str) -> str:
             </tr>"""
         body_content = f"""
         <table>
-            <tr><th>代码</th><th>名称</th><th>最新价</th><th>共振状态</th></tr>
+            <tr><th>代码</th><th>名称</th><th>最新价</th><th>波动状态</th></tr>
             {rows}
         </table>
         """
     else:
-        body_content = '<div class="empty">本轮扫描无共振信号股票</div>'
+        body_content = '<div class="empty">本轮扫描无命中股票</div>'
 
     failed_note = ""
     if failed_list:
@@ -79,16 +79,12 @@ def build_html(resonance_list, failed_list, total_count, scan_time_str) -> str:
     <body>
         <div class="container">
             <div class="header">
-                <h2>A股 GWAVE 双周期共振扫描</h2>
+                <h2>A股 波动选股</h2>
                 <p>{scan_time_str}　|　共扫描 {total_count} 只标的，命中 {len(resonance_list)} 只</p>
             </div>
             <div class="body">
                 {body_content}
                 {failed_note}
-            </div>
-            <div class="footer">
-                信号定义：日线TNUM=1 且 周线TNUM=1（双周期同时刚金叉）<br>
-                数据时点：收盘前约30分钟，周线为本周进行中数据，存在被后续行情修正的可能
             </div>
         </div>
     </body>
@@ -105,8 +101,8 @@ def send_email(html: str, resonance_count: int) -> bool:
         return False
 
     today_str = datetime.date.today().strftime("%Y-%m-%d")
-    subject = f"GWAVE共振扫描 {today_str}　命中{resonance_count}只" if resonance_count > 0 \
-        else f"GWAVE共振扫描 {today_str}　无信号"
+    subject = f"A股波动扫描 {today_str}　命中{resonance_count}只" if resonance_count > 0 \
+        else f"A股波动扫描 {today_str}　无信号"
 
     payload = {
         "from": EMAIL_FROM,
@@ -139,7 +135,7 @@ def main():
     resonance_list = get_resonance_list(results)
     failed_list = get_failed_list(results)
 
-    logger.info(f"扫描完成: 共振 {len(resonance_list)} 只，失败 {len(failed_list)} 只")
+    logger.info(f"扫描完成: 波动命中 {len(resonance_list)} 只，失败 {len(failed_list)} 只")
 
     html = build_html(resonance_list, failed_list, len(WATCHLIST_A), scan_time_str)
     ok = send_email(html, len(resonance_list))
