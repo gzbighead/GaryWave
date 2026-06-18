@@ -17,7 +17,7 @@ import logging
 import requests
 
 from engine_gwave import scan_watchlist, get_resonance_list, get_failed_list
-from watchlist_us import WATCHLIST_US
+from watchlist_a import WATCHLIST_A
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("gwave_report")
