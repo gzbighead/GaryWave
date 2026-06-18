@@ -25,7 +25,7 @@ logger = logging.getLogger("gwave_report")
 RESEND_API_URL = "https://api.resend.com/emails"
 
 EMAIL_TO   = ["garyfocus@hotmail.com"]
-EMAIL_FROM = "美股共振选股 <messenger@ceic.ca>"
+EMAIL_FROM = "美股波动选股 <messenger@ceic.ca>"
 
 
 def build_html(resonance_list, failed_list, total_count, scan_time_str) -> str:
@@ -58,7 +58,7 @@ def build_html(resonance_list, failed_list, total_count, scan_time_str) -> str:
                 <td class="symbol">{r.symbol}</td>
                 <td>{r.name}</td>
                 <td>{r.last_close}</td>
-                <td><span class="tnum-tag">日{int(r.daily_tnum)} / 周{int(r.weekly_tnum)}</span></td>
+                <td><span class="tnum-tag">命中</span></td>
             </tr>"""
         body_content = f"""
         <table>
@@ -79,16 +79,12 @@ def build_html(resonance_list, failed_list, total_count, scan_time_str) -> str:
     <body>
         <div class="container">
             <div class="header">
-                <h2>GWAVE 双周期共振扫描</h2>
+                <h2>美股波动共振选股</h2>
                 <p>{scan_time_str}　|　共扫描 {total_count} 只标的，命中 {len(resonance_list)} 只</p>
             </div>
             <div class="body">
                 {body_content}
                 {failed_note}
-            </div>
-            <div class="footer">
-                信号定义：日线TNUM=1 且 周线TNUM=1（双周期同时刚金叉）<br>
-                数据时点：收盘前约30分钟，周线为本周进行中数据，存在被后续行情修正的可能
             </div>
         </div>
     </body>
@@ -105,8 +101,8 @@ def send_email(html: str, resonance_count: int) -> bool:
         return False
 
     today_str = datetime.date.today().strftime("%Y-%m-%d")
-    subject = f"GWAVE共振扫描 {today_str}　命中{resonance_count}只" if resonance_count > 0 \
-        else f"GWAVE共振扫描 {today_str}　无信号"
+    subject = f"美股波动共振选股 {today_str}　命中{resonance_count}只" if resonance_count > 0 \
+        else f"美股波动共振选股 {today_str}　无符合条件个股"
 
     payload = {
         "from": EMAIL_FROM,
