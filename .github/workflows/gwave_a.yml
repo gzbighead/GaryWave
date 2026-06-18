@@ -1,1 +1,32 @@
+name: GWAVE 双周期共振扫描
 
+on:
+  # 由 Cloudflare Worker 通过 GitHub API 触发 (repository_dispatch)
+  repository_dispatch:
+    types: [gwave-scan-a]
+  # 也支持在GitHub界面手动触发，方便调试
+  workflow_dispatch: {}
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v5
+
+      - name: 设置Python环境
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: 安装依赖
+        run: |
+          pip install --upgrade pip
+          pip install yfinance pandas numpy requests
+
+      - name: 运行GWAVE扫描
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: python report_gwave_a.py
