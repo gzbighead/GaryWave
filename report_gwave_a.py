@@ -25,7 +25,7 @@ logger = logging.getLogger("gwave_report")
 RESEND_API_URL = "https://api.resend.com/emails"
 
 EMAIL_TO   = ["garyfocus@hotmail.com"]
-EMAIL_FROM = "美股共振选股 <messenger@ceic.ca>"
+EMAIL_FROM = "A股共振选股 <messenger@ceic.ca>"
 
 
 def build_html(resonance_list, failed_list, total_count, scan_time_str) -> str:
