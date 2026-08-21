@@ -68,9 +68,9 @@ def _tdx_ema(series: pd.Series, n: int) -> pd.Series:
 
 # ─── GDK核心计算 ──────────────────────────────────────────────────────────
 def calc_gdk(df: pd.DataFrame) -> pd.DataFrame:
-    out = df.copy()
-    # 用前向填充处理Close列中的NaN（停牌日等导致的空值），避免EMA计算中断
-    out["Close"] = out["Close"].ffill()
+    # 删掉Close为NaN的行（停牌日），与通达信跳过停牌日的处理方式一致
+    # 注意：用ffill填充会导致EMA计算失真，必须删行而不是填充
+    out = df.dropna(subset=["Close"]).copy()
     h1 = _tdx_ema(out["Close"], 8)
     h2 = _tdx_ema(h1, 20)
     amplitude = (h1 - h2) / h2 * 100.0
