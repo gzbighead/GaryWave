@@ -8,11 +8,11 @@ GDK 引擎 - A股/美股启动信号扫描
   幅度 := (H1 - H2) / H2 * 100
   GDK := 幅度 > 0 AND 幅度 < 1 AND COUNT(幅度 < 0, 60) > 50 AND 幅度 > 昨日幅度
 
-通达信EMA实现细节：
-  EMA(X, N) 的初始值 = 前N期的简单平均(SMA)，之后每期用
-  EMA = (2*X + (N-1)*EMA_prev) / (N+1) 递推。
-  这与pandas ewm(adjust=False)的"第一个点直接作为初始值"不同，
-  必须手动实现才能与通达信结果对齐。
+实现说明：
+  拉取2年数据，前1年作为EMA预热期（让H2充分收敛），
+  后1年用于实际信号判断，只取最后一根K线的GDK值。
+  这样既避免ETF成立年限不足5年导致数据拉取失败，
+  又让H2有足够的历史建立正确的基准水平。
 """
 
 import logging
@@ -28,8 +28,8 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger("gdk")
 
 # ─── 参数 ──────────────────────────────────────────────────────────────────
-HISTORY_PERIOD  = "5y"
-MIN_BARS        = 80
+HISTORY_PERIOD  = "2y"    # 拉2年，前1年预热H2，后1年用于信号判断
+MIN_BARS        = 160     # 2年约500根，至少要有160根（约8个月）才够用
 MAX_RETRIES     = 1
 RETRY_SLEEP     = 1.5
 
@@ -41,17 +41,10 @@ RANGE_LOWER     = 0.0
 
 # ─── TDX EMA（初始值用前N期SMA，与通达信对齐）────────────────────────────
 def _tdx_ema(series: pd.Series, n: int) -> pd.Series:
-    """
-    通达信EMA实现：
-    - 前N-1期：NaN（数据不足）
-    - 第N期起始值：前N期的简单平均
-    - 之后每期：(2*X + (N-1)*EMA_prev) / (N+1)
-    """
     values = series.values.astype(float)
     length = len(values)
     result = np.full(length, np.nan)
 
-    # 找到第一个有效的起始点（前N期需要都是有效数字）
     start = n - 1
     while start < length:
         window = values[start - n + 1: start + 1]
@@ -135,9 +128,18 @@ class GDKResult:
 
 def scan_symbol(symbol: str, name: str) -> GDKResult:
     df = _fetch_with_retry(symbol)
-    if df is None or len(df) < MIN_BARS:
+    if df is None or df.empty:
         return GDKResult(symbol=symbol, name=name, ok=False,
-                         error="数据不足或拉取失败")
+                         error="数据拉取失败")
+
+    # 数据不足时降级用全部可用数据（兼容成立时间较短的ETF）
+    if len(df) < MIN_BARS:
+        if len(df) < 80:
+            return GDKResult(symbol=symbol, name=name, ok=False,
+                             error=f"数据不足({len(df)}根)")
+        # 数据在80~160之间，降级使用
+        logger.debug(f"{symbol} 数据仅{len(df)}根，降级计算")
+
     try:
         result = calc_gdk(df)
     except Exception as e:  # noqa: BLE001
