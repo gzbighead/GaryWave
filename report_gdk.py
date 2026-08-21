@@ -128,7 +128,16 @@ def send_email(html: str, signal_count: int) -> bool:
 def main():
     scan_time_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
     logger.info(f"开始GDK扫描，共 {len(WATCHLIST_A)} 只标的")
-
+    # ─── 临时调试：打印159881的H1/H2值 ───────────────────────────────────────
+    import yfinance as yf
+    from engine_gdk import calc_gdk
+    _df = yf.Ticker("159881.SZ").history(period="1y", interval="1d")
+    _df["Close"] = _df["Close"].astype(float)
+    _r = calc_gdk(_df)
+    print("=== 159881调试 ===")
+    print(_r[["Close","H1","H2","幅度","GDK"]].tail(5).to_string())
+    print("==================")
+    # ─── 调试结束 ────────────────────────────────────────────────────────────
     results = scan_watchlist(WATCHLIST_A)
     signal_list = get_signal_list(results)
     failed_list = get_failed_list(results)
