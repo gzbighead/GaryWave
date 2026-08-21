@@ -104,6 +104,7 @@ def _fetch_with_retry(symbol: str) -> Optional[pd.DataFrame]:
             for col in ["Open", "High", "Low", "Close", "Volume"]:
                 if col in df.columns:
                     df[col] = df[col].astype(float)
+            time.sleep(0.3)   # 每次成功请求后稍作停顿，避免触发限流
             return df
         except Exception as e:  # noqa: BLE001
             last_err = str(e)
