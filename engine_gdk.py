@@ -28,7 +28,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger("gdk")
 
 # ─── 参数 ──────────────────────────────────────────────────────────────────
-HISTORY_PERIOD  = "1y"
+HISTORY_PERIOD  = "5y"
 MIN_BARS        = 80
 MAX_RETRIES     = 1
 RETRY_SLEEP     = 1.5
@@ -104,7 +104,7 @@ def _fetch_with_retry(symbol: str) -> Optional[pd.DataFrame]:
     last_err = None
     for attempt in range(MAX_RETRIES + 1):
         try:
-            df = yf.Ticker(symbol).history(period=HISTORY_PERIOD, interval="1d", auto_adjust=False)
+            df = yf.Ticker(symbol).history(period=HISTORY_PERIOD, interval="1d")
             if df is None or df.empty:
                 last_err = "empty dataframe"
                 continue
