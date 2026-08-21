@@ -104,7 +104,7 @@ def _fetch_with_retry(symbol: str) -> Optional[pd.DataFrame]:
     last_err = None
     for attempt in range(MAX_RETRIES + 1):
         try:
-            df = yf.Ticker(symbol).history(period=HISTORY_PERIOD, interval="1d")
+            df = yf.Ticker(symbol).history(period=HISTORY_PERIOD, interval="1d", auto_adjust=False)
             if df is None or df.empty:
                 last_err = "empty dataframe"
                 continue
