@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
 GDK 引擎 - A股/美股启动信号扫描
-负责：拉取日线数据 -> 计算GDK公式 -> 判断启动信号 -> 返回结果列表
 
 通达信公式:
   H1 := EMA(CLOSE, 8)
@@ -9,10 +8,11 @@ GDK 引擎 - A股/美股启动信号扫描
   幅度 := (H1 - H2) / H2 * 100
   GDK := 幅度 > 0 AND 幅度 < 1 AND COUNT(幅度 < 0, 60) > 50 AND 幅度 > 昨日幅度
 
-信号含义：
-  价格长期（过去60天里超过50天）处于短期均线压制在中期均线下方的状态，
-  刚刚突破、且突破幅度极小（<1%），且幅度仍在扩大（趋势加速中），
-  捕捉"横盘压缩后刚启动且仍在推进"的买点。
+通达信EMA实现细节：
+  EMA(X, N) 的初始值 = 前N期的简单平均(SMA)，之后每期用
+  EMA = (2*X + (N-1)*EMA_prev) / (N+1) 递推。
+  这与pandas ewm(adjust=False)的"第一个点直接作为初始值"不同，
+  必须手动实现才能与通达信结果对齐。
 """
 
 import logging
@@ -39,23 +39,42 @@ RANGE_UPPER     = 1.0
 RANGE_LOWER     = 0.0
 
 
-# ─── TDX EMA ──────────────────────────────────────────────────────────────
+# ─── TDX EMA（初始值用前N期SMA，与通达信对齐）────────────────────────────
 def _tdx_ema(series: pd.Series, n: int) -> pd.Series:
-    return series.ewm(alpha=2.0 / (n + 1), adjust=False).mean()
+    """
+    通达信EMA实现：
+    - 前N-1期：NaN（数据不足）
+    - 第N期起始值：前N期的简单平均
+    - 之后每期：(2*X + (N-1)*EMA_prev) / (N+1)
+    """
+    values = series.values.astype(float)
+    length = len(values)
+    result = np.full(length, np.nan)
+
+    # 找到第一个有效的起始点（前N期需要都是有效数字）
+    start = n - 1
+    while start < length:
+        window = values[start - n + 1: start + 1]
+        if not np.any(np.isnan(window)):
+            result[start] = np.mean(window)
+            break
+        start += 1
+
+    if start >= length:
+        return pd.Series(result, index=series.index)
+
+    k = 2.0 / (n + 1)
+    for i in range(start + 1, length):
+        if np.isnan(values[i]):
+            result[i] = np.nan
+        else:
+            result[i] = values[i] * k + result[i - 1] * (1 - k)
+
+    return pd.Series(result, index=series.index)
 
 
 # ─── GDK核心计算 ──────────────────────────────────────────────────────────
 def calc_gdk(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    输入: df 包含 Close 列（按时间升序）
-    输出: 附加 H1, H2, 幅度, GDK 列的新df
-
-    GDK条件（四项同时满足）:
-      1. 幅度 > 0            (H1刚突破H2上方)
-      2. 幅度 < 1            (突破幅度极小，刚启动未追高)
-      3. COUNT(幅度<0,60)>50 (过去60天超过50天处于压制状态)
-      4. 幅度 > 昨日幅度     (幅度仍在扩大，趋势加速中，不是收缩)
-    """
     out = df.copy()
     h1 = _tdx_ema(out["Close"], 8)
     h2 = _tdx_ema(h1, 20)
@@ -64,7 +83,6 @@ def calc_gdk(df: pd.DataFrame) -> pd.DataFrame:
     below_zero = (amplitude < 0).astype(int)
     count_below = below_zero.rolling(window=COUNT_PERIOD, min_periods=COUNT_PERIOD).sum()
 
-    # 幅度必须大于昨天的幅度（趋势仍在加速，不是收缩）
     amplitude_expanding = amplitude > amplitude.shift(1)
 
     gdk = (
