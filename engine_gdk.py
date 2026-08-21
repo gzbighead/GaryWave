@@ -69,6 +69,8 @@ def _tdx_ema(series: pd.Series, n: int) -> pd.Series:
 # ─── GDK核心计算 ──────────────────────────────────────────────────────────
 def calc_gdk(df: pd.DataFrame) -> pd.DataFrame:
     out = df.copy()
+    # 用前向填充处理Close列中的NaN（停牌日等导致的空值），避免EMA计算中断
+    out["Close"] = out["Close"].ffill()
     h1 = _tdx_ema(out["Close"], 8)
     h2 = _tdx_ema(h1, 20)
     amplitude = (h1 - h2) / h2 * 100.0
