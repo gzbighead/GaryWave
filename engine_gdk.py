@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 """
-GDK 引擎 - A股启动信号扫描
+GDK 引擎 - A股/美股启动信号扫描
 负责：拉取日线数据 -> 计算GDK公式 -> 判断启动信号 -> 返回结果列表
 
 通达信公式:
   H1 := EMA(CLOSE, 8)
   H2 := EMA(H1, 20)
   幅度 := (H1 - H2) / H2 * 100
-  GDK := 幅度 > 0 AND 幅度 < 1 AND COUNT(幅度 < 0, 60) > 50
+  GDK := 幅度 > 0 AND 幅度 < 1 AND COUNT(幅度 < 0, 60) > 50 AND 幅度 > 昨日幅度
 
 信号含义：
   价格长期（过去60天里超过50天）处于短期均线压制在中期均线下方的状态，
-  刚刚突破、且突破幅度极小（<1%），捕捉"横盘压缩后刚启动"的买点。
+  刚刚突破、且突破幅度极小（<1%），且幅度仍在扩大（趋势加速中），
+  捕捉"横盘压缩后刚启动且仍在推进"的买点。
 """
 
 import logging
@@ -27,20 +28,19 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger("gdk")
 
 # ─── 参数 ──────────────────────────────────────────────────────────────────
-HISTORY_PERIOD = "1y"     # 拉取1年日线，COUNT(60)需要至少60根，1年绰绰有余
-MIN_BARS       = 80       # 最少需要的K线根数（EMA预热 + COUNT(60)缓冲）
-MAX_RETRIES    = 1
-RETRY_SLEEP    = 1.5
+HISTORY_PERIOD  = "1y"
+MIN_BARS        = 80
+MAX_RETRIES     = 1
+RETRY_SLEEP     = 1.5
 
-COUNT_PERIOD   = 60       # COUNT(幅度<0, 60)
-COUNT_THRESHOLD = 50      # >50根处于压制状态
-RANGE_UPPER    = 1.0      # 幅度上限（%）
-RANGE_LOWER    = 0.0      # 幅度下限（%），严格大于0
+COUNT_PERIOD    = 60
+COUNT_THRESHOLD = 50
+RANGE_UPPER     = 1.0
+RANGE_LOWER     = 0.0
 
 
 # ─── TDX EMA ──────────────────────────────────────────────────────────────
 def _tdx_ema(series: pd.Series, n: int) -> pd.Series:
-    """通达信EMA: alpha=2/(N+1), adjust=False"""
     return series.ewm(alpha=2.0 / (n + 1), adjust=False).mean()
 
 
@@ -49,20 +49,29 @@ def calc_gdk(df: pd.DataFrame) -> pd.DataFrame:
     """
     输入: df 包含 Close 列（按时间升序）
     输出: 附加 H1, H2, 幅度, GDK 列的新df
+
+    GDK条件（四项同时满足）:
+      1. 幅度 > 0            (H1刚突破H2上方)
+      2. 幅度 < 1            (突破幅度极小，刚启动未追高)
+      3. COUNT(幅度<0,60)>50 (过去60天超过50天处于压制状态)
+      4. 幅度 > 昨日幅度     (幅度仍在扩大，趋势加速中，不是收缩)
     """
     out = df.copy()
     h1 = _tdx_ema(out["Close"], 8)
     h2 = _tdx_ema(h1, 20)
     amplitude = (h1 - h2) / h2 * 100.0
 
-    # COUNT(幅度<0, 60): 过去60根（含本根）中幅度<0的根数
     below_zero = (amplitude < 0).astype(int)
     count_below = below_zero.rolling(window=COUNT_PERIOD, min_periods=COUNT_PERIOD).sum()
+
+    # 幅度必须大于昨天的幅度（趋势仍在加速，不是收缩）
+    amplitude_expanding = amplitude > amplitude.shift(1)
 
     gdk = (
         (amplitude > RANGE_LOWER) &
         (amplitude < RANGE_UPPER) &
-        (count_below > COUNT_THRESHOLD)
+        (count_below > COUNT_THRESHOLD) &
+        amplitude_expanding
     )
 
     out["H1"]  = h1
