@@ -29,7 +29,7 @@ logger = logging.getLogger("gdk")
 
 # ─── 参数 ──────────────────────────────────────────────────────────────────
 HISTORY_PERIOD  = "2y"    # 拉2年，前1年预热H2，后1年用于信号判断
-MIN_BARS        = 160     # 2年约500根，至少要有160根（约8个月）才够用
+MIN_BARS        = 88      # EMA8(8根)+EMA20(20根)+COUNT60(60根)+1=89，取整88根
 MAX_RETRIES     = 1
 RETRY_SLEEP     = 1.5
 
@@ -68,9 +68,9 @@ def _tdx_ema(series: pd.Series, n: int) -> pd.Series:
 
 # ─── GDK核心计算 ──────────────────────────────────────────────────────────
 def calc_gdk(df: pd.DataFrame) -> pd.DataFrame:
-    # 删掉Close为NaN的行（停牌日），与通达信跳过停牌日的处理方式一致
-    # 注意：用ffill填充会导致EMA计算失真，必须删行而不是填充
-    out = df.dropna(subset=["Close"]).copy()
+    out = df.copy()
+    # 最后一行如果Close是NaN（数据源延迟），用前一行填充，其余停牌日已在拉取阶段删除
+    out["Close"] = out["Close"].ffill()
     h1 = _tdx_ema(out["Close"], 8)
     h2 = _tdx_ema(h1, 20)
     amplitude = (h1 - h2) / h2 * 100.0
@@ -113,8 +113,11 @@ def _fetch_with_retry(symbol: str) -> Optional[pd.DataFrame]:
                 for col in ["Open", "High", "Low", "Close", "Volume"]:
                     if col in df.columns:
                         df[col] = df[col].astype(float)
-                # 删除停牌日（Close=NaN），与通达信处理方式一致
-                df = df.dropna(subset=["Close"])
+                # 删除历史停牌日（Close=NaN），但保留最后一行（最新数据）
+                # 最后一行可能因数据源延迟暂时为NaN，不应删除
+                last_row = df.iloc[[-1]]
+                df = df.iloc[:-1].dropna(subset=["Close"])
+                df = pd.concat([df, last_row])
                 if len(df) >= MIN_BARS:
                     time.sleep(0.3)
                     return df
