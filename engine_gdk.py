@@ -110,6 +110,7 @@ def _fetch_with_retry(symbol: str) -> Optional[pd.DataFrame]:
                 if df is None or df.empty:
                     last_err = f"empty dataframe (period={period})"
                     break
+                logger.info(f"{symbol} 原始数据最后3行:\n{df.tail(3).to_string()}")
                 for col in ["Open", "High", "Low", "Close", "Volume"]:
                     if col in df.columns:
                         df[col] = df[col].astype(float)
