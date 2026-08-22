@@ -96,22 +96,35 @@ def calc_gdk(df: pd.DataFrame) -> pd.DataFrame:
 
 # ─── 数据拉取 ──────────────────────────────────────────────────────────────
 def _fetch_with_retry(symbol: str) -> Optional[pd.DataFrame]:
+    """
+    拉取数据并删除停牌日（Close=NaN的行），
+    自动扩大拉取范围直到有效K线数量达到MIN_BARS，
+    与通达信"跳过停牌日、取足够多有效交易日"的逻辑对齐。
+    """
+    periods = ["1y", "2y", "3y", "5y"]
     last_err = None
-    for attempt in range(MAX_RETRIES + 1):
-        try:
-            df = yf.Ticker(symbol).history(period=HISTORY_PERIOD, interval="1d")
-            if df is None or df.empty:
-                last_err = "empty dataframe"
-                continue
-            for col in ["Open", "High", "Low", "Close", "Volume"]:
-                if col in df.columns:
-                    df[col] = df[col].astype(float)
-            time.sleep(0.3)   # 每次成功请求后稍作停顿，避免触发限流
-            return df
-        except Exception as e:  # noqa: BLE001
-            last_err = str(e)
-            if attempt < MAX_RETRIES:
-                time.sleep(RETRY_SLEEP)
+    for period in periods:
+        for attempt in range(MAX_RETRIES + 1):
+            try:
+                df = yf.Ticker(symbol).history(period=period, interval="1d")
+                if df is None or df.empty:
+                    last_err = f"empty dataframe (period={period})"
+                    break
+                for col in ["Open", "High", "Low", "Close", "Volume"]:
+                    if col in df.columns:
+                        df[col] = df[col].astype(float)
+                # 删除停牌日（Close=NaN），与通达信处理方式一致
+                df = df.dropna(subset=["Close"])
+                if len(df) >= MIN_BARS:
+                    time.sleep(0.3)
+                    return df
+                # 有效K线不足，尝试更长的period
+                last_err = f"有效K线不足({len(df)}根, period={period})"
+                break
+            except Exception as e:  # noqa: BLE001
+                last_err = str(e)
+                if attempt < MAX_RETRIES:
+                    time.sleep(RETRY_SLEEP)
     logger.warning(f"{symbol} 拉取失败: {last_err}")
     return None
 
